@@ -6,7 +6,7 @@ env:
   ECS_CLUSTER: hprocluster
   ECS_SERVICE: hprotask-def-service-gkq7p2md
   ECS_TASK_DEFINITION: aws-files/task-definition.json
-  ConTAINER_NAME: hproapp
+  CONTAINER_NAME: hproapp
 
 jobs:
   Testing:
