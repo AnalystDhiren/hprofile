@@ -1,5 +1,5 @@
 name: Hprofile actions
-on: workflow_dispatch
+on: [push, workflow_dispatch]
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: hpro
@@ -95,12 +95,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # Optional step to remove enableFaultInjection if exists (see previous discussions)
-      # Uncomment if you get errors about "enableFaultInjection" key.
-      # - name: Remove enableFaultInjection from task definition
-      #   run: |
-      #     jq 'del(.enableFaultInjection)' ${{ env.ECS_TASK_DEFINITION }} > temp-taskdef.json
-      #     mv temp-taskdef.json ${{ env.ECS_TASK_DEFINITION }}
+      - name: Remove enableFaultInjection from ECS task definition
+        run: |
+          if jq 'has("enableFaultInjection")' "${{ env.ECS_TASK_DEFINITION }}" | grep true; then
+            jq 'del(.enableFaultInjection)' "${{ env.ECS_TASK_DEFINITION }}" > temp-taskdef.json
+            mv temp-taskdef.json "${{ env.ECS_TASK_DEFINITION }}"
+          fi
 
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
