@@ -18,34 +18,36 @@ jobs:
       - name: echo workflow testing
         run: echo "WorkflowTesting"
 
+
       - name: maven build
         run: mvn test
 
       - name: checkstyle
         run: mvn checkstyle:checkstyle
 
+      #setup java
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           java-version: '11'
           distribution: 'temurin'
-
+      # Setup sonar-scanner
       - name: Setup SonarQube
         uses: warchant/setup-sonar-scanner@v7
 
+      # Run sonar-scanner
       - name: SonarQube Scan
-        run: |
-          sonar-scanner \
-            -Dsonar.host.url=${{ secrets.SONAR_URL }} \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }} \
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
-            -Dsonar.sources=src/ \
-            -Dsonar.junit.reportPaths=target/surefire-reports/ \
-            -Dsonar.jacoco.reportPaths=target/jacoco.exec \
-            -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml \
-            -Dsonar.java.binaries=target/test-classes/com/visualpathit/account
-
+        run: sonar-scanner
+           -Dsonar.host.url=${{ secrets.SONAR_URL }}
+           -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+           -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+           -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+           -Dsonar.sources=src/
+           -Dsonar.junit.reportPaths=target/surefire-reports/
+           -Dsonar.jacoco.reportPaths=target/jacoco.exec
+           -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml
+           -Dsonar.java.binaries=target/test-classes/com/visualpathit/account
+      # Check the Quality Gate status.
       - name: SonarQube Quality Gate check
         id: sonarqube-quality-gate-check
         uses: sonarsource/sonarqube-quality-gate-action@master
@@ -53,8 +55,9 @@ jobs:
           pollingTimeoutSec: 600
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
-
+          SONAR_HOST_URL: ${{ secrets.SONAR_URL }} #OPTIONAL
+  
+          
   build_and_publish:
     needs: Testing
     runs-on: ubuntu-latest
@@ -64,8 +67,8 @@ jobs:
 
       - name: update application.properties file
         run: |
-          sed -i "s/^jdbc.username.*$/jdbc.username=${{ secrets.RDS_USER }}/" src/main/resources/application.properties
-          sed -i "s/^jdbc.password.*$/jdbc.password=${{ secrets.RDS_PASS }}/" src/main/resources/application.properties
+          sed -i "s/^jdbc.username.*$/jdbc.username\=${{ secrets.RDS_USER }}/" src/main/resources/application.properties
+          sed -i "s/^jdbc.password.*$/jdbc.password\=${{ secrets.RDS_PASS}}/" src/main/resources/application.properties
           sed -i "s/db01/${{ secrets.RDS_ENDPOINT }}/" src/main/resources/application.properties
 
       - name: upload image to ECR
@@ -74,9 +77,9 @@ jobs:
           access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
           secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           registry: ${{ secrets.REGISTRY }}
-          repo: ${{ env.ECR_REPOSITORY }}
-          region: ${{ env.AWS_REGION }}
-          tags: latest,${{ github.run_number }}
+          repo: hpro
+          region: ${{ secrets.AWS_REGION }}
+          tags: latest, ${{ github.run_number }}
           daemon_off: false
           dockerfile: ./Dockerfile
           context: ./
@@ -95,13 +98,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Remove enableFaultInjection from ECS task definition
-        run: |
-          if jq 'has("enableFaultInjection")' "${{ env.ECS_TASK_DEFINITION }}" | grep true; then
-            jq 'del(.enableFaultInjection)' "${{ env.ECS_TASK_DEFINITION }}" > temp-taskdef.json
-            mv temp-taskdef.json "${{ env.ECS_TASK_DEFINITION }}"
-          fi
-
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
@@ -117,3 +113,4 @@ jobs:
           service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
+
